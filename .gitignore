@@ -1,0 +1,10 @@
+# OS related files
+.DS_Store
+Thumbs.db
+
+# Private folder 
+.private/
+
+# IDE settings
+.vscode/
+.idea/

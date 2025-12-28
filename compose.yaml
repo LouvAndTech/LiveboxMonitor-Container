@@ -1,0 +1,19 @@
+services:
+  liveboxmonitor:
+    image: liveboxmonitor:test
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: liveboxmonitor
+    environment:
+      CUSTOM_USER: "user"
+      PASSWORD: "pass"
+    volumes:
+      - liveboxmonitor-data:/config
+    ports:
+      - "3000:3000" # HTTP
+      - "3001:3001" # HTTPS
+    restart: unless-stopped
+
+volumes:
+  liveboxmonitor-data:

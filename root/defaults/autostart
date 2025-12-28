@@ -1,0 +1,1 @@
+/bin/sh -c 'mkdir -p /config/LiveboxMonitor && cd /config/LiveboxMonitor && exec /LiveboxMonitor/venv/bin/python /LiveboxMonitor/src/LiveboxMonitor/lbm.py'
