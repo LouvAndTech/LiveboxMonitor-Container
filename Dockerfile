@@ -37,3 +37,10 @@ ENV CUSTOM_USER=liveboxmonitor
 ENV PASSWORD=default_pass
 # Startup parameters
 ENV NO_DECOR=1
+
+# === Setup healthcheck ===
+COPY healthcheck.sh /healthcheck.sh
+RUN chmod +x /healthcheck.sh
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD /healthcheck.sh
+
