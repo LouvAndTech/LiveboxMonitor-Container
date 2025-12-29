@@ -6,6 +6,10 @@ LABEL maintainer="elouan.lerissel@gmail.com" \
 
 WORKDIR /LiveboxMonitor
 
+# === ARGS ===
+
+ARG APP_VERSION
+
 # === Install LiveboxMonitor ===
 # Dependencies
 RUN apk add --no-cache \
@@ -15,7 +19,7 @@ RUN apk add --no-cache \
     py3-qt6 
 
 # Download LiveboxMonitor
-RUN wget -qO- https://github.com/p-dor/LiveboxMonitor/archive/refs/tags/1.6.tar.gz | tar -xz --strip-components=1 -C /LiveboxMonitor
+RUN wget -qO- https://github.com/p-dor/LiveboxMonitor/archive/refs/tags/${APP_VERSION}.tar.gz | tar -xz --strip-components=1 -C /LiveboxMonitor
 
 # Create a venv and install requirements
 # Note the use of --system-site-packages to be able to use system installed PyQt6

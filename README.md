@@ -10,7 +10,7 @@ This image uses [linuxserver](https://github.com/linuxserver)'s [KasmVNC base im
 
 ## Usage 
 
-The best way to use the image is to deploy it with Docker Compose. 
+The best way to use the image *(for now)* is to build and deploy it with Docker Compose after cloning this repository.
 
 ```yaml
 services:
@@ -19,6 +19,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        APP_VERSION: "1.6"
     container_name: liveboxmonitor
     environment:
       CUSTOM_USER: "user"
