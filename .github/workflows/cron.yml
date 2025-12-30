@@ -61,7 +61,7 @@ jobs:
     uses: ./.github/workflows/test.yaml
     if: needs.extract-version.outputs.versions_differ == 'true' || 
         github.event_name == 'pull_request'
-    needs: build
+    needs: [build, extract-version]
     with:
       version: ${{ needs.extract-version.outputs.lbm_version }}
 
@@ -70,7 +70,7 @@ jobs:
     if: github.event_name != 'pull_request' && 
         (github.event_name == 'workflow_dispatch' && github.event.inputs.release == 'true') && 
         needs.extract-version.outputs.versions_differ == 'true'
-    needs: test
+    needs: [test, extract-version]
     steps:
       - uses: actions/checkout@v3
         with:
