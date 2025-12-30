@@ -22,20 +22,22 @@ jobs:
       - name: Get LiveboxMonitor current version
         id: get_lbm_version
         run: |
-          LBM_VERSION=v$(curl -s https://api.github.com/repos/p-dor/LiveboxMonitor/releases/latest | jq -r '.tag_name')
+          LBM_VERSION=$(curl -s https://api.github.com/repos/p-dor/LiveboxMonitor/releases/latest | jq -r '.tag_name')
           echo "Current LiveboxMonitor version is $LBM_VERSION"
           echo "lbm_version=$LBM_VERSION" >> $GITHUB_OUTPUT
       - name: Get latest tag
         id: get_latest_tag
         run: |
           LATEST_TAG=$(git describe --tags $(git rev-list --tags --max-count=1))
-          echo "Latest tag is $LATEST_TAG"
+          LATEST_VERSION="${LATEST_TAG#v}"
+          echo "Latest tag is $LATEST_TAG (version $LATEST_VERSION)"
           echo "latest_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+          echo "latest_version=$LATEST_VERSION" >> $GITHUB_OUTPUT
       - name: Compare versions
         id: compare_versions
         run: |
-          echo "Comparing LiveboxMonitor version ${{ steps.get_lbm_version.outputs.lbm_version }} with latest tag ${{ steps.get_latest_tag.outputs.latest_tag }}"
-          if [ "${{ steps.get_lbm_version.outputs.lbm_version }}" != "${{ steps.get_latest_tag.outputs.latest_tag }}" ]; then
+          echo "Comparing LiveboxMonitor version ${{ steps.get_lbm_version.outputs.lbm_version }} with latest tag version ${{ steps.get_latest_tag.outputs.latest_version }}"
+          if [ "${{ steps.get_lbm_version.outputs.lbm_version }}" != "${{ steps.get_latest_tag.outputs.latest_version }}" ]; then
             echo "versions_differ=true" >> $GITHUB_OUTPUT
           else
             echo "versions_differ=false" >> $GITHUB_OUTPUT
