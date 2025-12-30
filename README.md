@@ -10,7 +10,7 @@ This image uses [linuxserver](https://github.com/linuxserver)'s [KasmVNC base im
 
 ## Usage 
 
-The best way to use the image *(for now)* is to build and deploy it with Docker Compose after cloning this repository.
+To use this container, you can use the following `docker-compose` configuration as a starting point:
 
 > [!WARNING]  
 > Change the default username and password in the `compose.yaml` file before deploying the container! Especially if you expose the ports to the internet!
@@ -18,7 +18,7 @@ The best way to use the image *(for now)* is to build and deploy it with Docker 
 ```yaml
 services:
   liveboxmonitor:
-    image: liveboxmonitor:test
+    image: louvandtech/liveboxmonitor:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -38,3 +38,8 @@ services:
 volumes:
   liveboxmonitor-data:
 ```
+
+This image is available on Docker Hub and GitHub Container Registry :
+
+- Docker Hub: `louvandtech/liveboxmonitor:latest`
+- GitHub Container Registry: `ghcr.io/louvandtech/liveboxmonitor:latest`
