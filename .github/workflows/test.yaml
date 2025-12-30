@@ -1,14 +1,15 @@
 name: Test
 
 on:
-  workflow_run:
-    workflows: [Build]
-    types: [completed]
-    branches: [main]
+  workflow_call:
+    inputs:
+      version:
+        description: 'Version to test'
+        required: true
+        type: string
 
 jobs:
   download-and-test:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -21,33 +22,24 @@ jobs:
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
-          name: image-${{ matrix.platform }}
+          name: image-${{ inputs.version }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           run-id: ${{ github.event.workflow_run.id }}
+          path: .
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
       - name: Load image
         run: |
-          docker load --input ./image-${{ matrix.platform }}.tar
-
-      - name: Extract version from tag
-        id: version
-        run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          docker load --input ./image/image.tar
 
       - name: Run healthcheck
         run: |
-          IMAGE_ID=$(docker images --quiet --filter reference='*/liveboxmonitor:*' | head -1)
-          if [ -z "$IMAGE_ID" ]; then
-            echo "Error: No image found"
-            exit 1
-          fi
-          
+          IMAGE_TAG=liveboxmonitor:${{ inputs.version }}
+
           # Start container
-          CONTAINER_ID=$(docker run -d --rm $IMAGE_ID)
+          CONTAINER_ID=$(docker run -d --rm --platform linux/${{ matrix.platform }} $IMAGE_TAG)
           echo "Started container: $CONTAINER_ID"
           
           # Wait for container to be healthy
