@@ -50,7 +50,3 @@ jobs:
           name: image-${{ inputs.version }}
           path: ./image.tar
           retention-days: 1
-
-      - run: |
-          ls -la 
-          ls -la ./image
