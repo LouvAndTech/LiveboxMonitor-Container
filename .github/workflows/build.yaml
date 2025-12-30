@@ -7,12 +7,22 @@ on:
         description: 'Version to build'
         required: true
         type: string
+    outputs:
+      build_run_id:
+        description: 'Run ID of the build workflow'
+        value: ${{ jobs.build.outputs.run_id }}
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      run_id: ${{ steps.build-meta.outputs.run_id }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Export build run id
+        id: build-meta
+        run: echo "run_id=${{ github.run_id }}" >> $GITHUB_OUTPUT
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -40,3 +50,7 @@ jobs:
           name: image-${{ inputs.version }}
           path: ./image.tar
           retention-days: 1
+
+      - run: |
+          ls -la 
+          ls -la ./image

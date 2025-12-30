@@ -7,6 +7,10 @@ on:
         description: 'Version to test'
         required: true
         type: string
+      build_run_id:
+        description: 'Run ID of the build workflow'
+        required: true
+        type: string
 
 jobs:
   download-and-test:
@@ -24,7 +28,8 @@ jobs:
         with:
           name: image-${{ inputs.version }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          run-id: ${{ github.event.workflow_run.id }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.build_run_id }}
           path: .
 
       - name: Set up QEMU

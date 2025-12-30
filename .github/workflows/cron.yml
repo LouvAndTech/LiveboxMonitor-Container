@@ -64,18 +64,15 @@ jobs:
     needs: [build, extract-version]
     with:
       version: ${{ needs.extract-version.outputs.lbm_version }}
+      build_run_id: ${{ needs.build.outputs.build_run_id }}
 
   release:
-    runs-on: ubuntu-latest
+    uses: ./.github/workflows/publish.yaml
     if: github.event_name != 'pull_request' && 
         (github.event_name == 'workflow_dispatch' && github.event.inputs.release == 'true') && 
         needs.extract-version.outputs.versions_differ == 'true'
-    needs: [test, extract-version]
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-      - name: Publish
-        uses: ./.github/workflows/publish.yaml
-        with:
-          version: ${{ needs.extract-version.outputs.lbm_version }}
+    needs: [build, test, extract-version]
+    with:
+      version: ${{ needs.extract-version.outputs.lbm_version }}
+      build_run_id: ${{ needs.build.outputs.build_run_id }}
+    secrets: inherit
