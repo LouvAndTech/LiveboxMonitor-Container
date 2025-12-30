@@ -1,0 +1,64 @@
+name: Test
+
+description: 'Build and test LiveboxMonitor Docker image'
+
+inputs:
+  version:
+    description: 'Version to test'
+    required: true
+    type: string
+
+jobs:
+  download-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        platform:
+          - amd64
+          - arm64
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: image-${{ inputs.version }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
+          path: .
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Load image
+        run: |
+          docker load --input ./image/image.tar
+
+      - name: Run healthcheck
+        run: |
+          IMAGE_TAG=liveboxmonitor:${{ inputs.version }}
+
+          # Start container
+          CONTAINER_ID=$(docker run -d --rm --platform linux/${{ matrix.platform }} $IMAGE_TAG)
+          echo "Started container: $CONTAINER_ID"
+          
+          # Wait for container to be healthy
+          MAX_ATTEMPTS=10
+          ATTEMPT=1
+          while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
+            STATUS=$(docker inspect --format='{{.State.Health.Status}}' $CONTAINER_ID 2>/dev/null || echo "")
+            echo "Health check attempt $ATTEMPT: $STATUS"
+            
+            if [ "$STATUS" = "healthy" ]; then
+              echo "Container is healthy!"
+              docker stop $CONTAINER_ID
+              exit 0
+            fi
+            
+            sleep 5
+            ATTEMPT=$((ATTEMPT + 1))
+          done
+          
+          echo "Container failed health check"
+          docker stop $CONTAINER_ID
+          exit 1
