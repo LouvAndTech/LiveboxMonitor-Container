@@ -42,27 +42,8 @@ jobs:
           fi
 
   build:
-    runs-on: ubuntu-latest
+    uses: ./.github/workflows/build.yaml
     if: needs.extract-version.outputs.versions_differ == 'true'
     needs: extract-version
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-      - name: Build
-        uses: ./.github/actions/build
-        with:
-          version: ${{ needs.extract-version.outputs.lbm_version }}
-
-  test:
-    runs-on: ubuntu-latest
-    if: needs.extract-version.outputs.versions_differ == 'true'
-    needs: build
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-      - name: Test
-        uses: ./.github/actions/test
-        with:
-          version: ${{ needs.extract-version.outputs.lbm_version }}
+    with:
+      version: ${{ needs.extract-version.outputs.lbm_version }}
