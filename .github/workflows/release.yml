@@ -1,4 +1,4 @@
-name: Release Workflow 
+name: Release Workflow
 
 on:
   schedule:
@@ -46,6 +46,9 @@ jobs:
     if: needs.extract-version.outputs.versions_differ == 'true'
     needs: extract-version
     steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
       - name: Build
         uses: ./.github/actions/build
         with:
@@ -56,6 +59,9 @@ jobs:
     if: needs.extract-version.outputs.versions_differ == 'true'
     needs: build
     steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
       - name: Test
         uses: ./.github/actions/test
         with:
