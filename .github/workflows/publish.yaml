@@ -58,7 +58,7 @@ jobs:
 
       - name: Load image from artifact
         run: |
-          docker load --input ./image/image.tar
+          docker load --input ./image.tar
 
       - name: Push to GitHub Container Registry
         uses: docker/build-push-action@v5
