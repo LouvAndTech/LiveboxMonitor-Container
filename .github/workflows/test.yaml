@@ -4,25 +4,27 @@ on:
   workflow_call:
     inputs:
       version:
-        description: 'Version to test'
+        description: "Version to test"
         required: true
         type: string
       build_run_id:
-        description: 'Run ID of the build workflow'
+        description: "Run ID of the build workflow"
         required: true
         type: string
 
 jobs:
   download-and-test:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        platform:
-          - amd64
-          - arm64
-    steps:
-      - uses: actions/checkout@v4
+    permissions:
+      contents: read
+      actions: read
 
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [amd64, arm64]
+
+    steps:
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
@@ -30,40 +32,74 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           repository: ${{ github.repository }}
           run-id: ${{ inputs.build_run_id }}
-          path: .
+          path: ./artifact
+
+      - name: Show downloaded files
+        run: ls -lah ./artifact
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
-      - name: Load image
+      - name: Install skopeo
         run: |
-          docker load --input ./image.tar
+          sudo apt-get update
+          sudo apt-get install -y skopeo
+
+      - name: Import image for ${{ matrix.platform }} into Docker
+        run: |
+          set -euo pipefail
+          IMAGE_TAG="liveboxmonitor:${{ inputs.version }}"
+
+          # Extract the linux/${{ matrix.platform }} variant from the OCI archive
+          skopeo copy \
+            --override-os linux \
+            --override-arch ${{ matrix.platform }} \
+            oci-archive:./artifact/image.tar \
+            docker-daemon:${IMAGE_TAG}
+
+          docker image inspect "${IMAGE_TAG}" >/dev/null
+          echo "Imported ${IMAGE_TAG} for arch ${{ matrix.platform }}"
 
       - name: Run healthcheck
+        shell: bash
         run: |
-          IMAGE_TAG=liveboxmonitor:${{ inputs.version }}
+          set -euo pipefail
+          IMAGE_TAG="liveboxmonitor:${{ inputs.version }}"
+          NAME="liveboxmonitor-test-${{ matrix.platform }}"
 
-          # Start container
-          CONTAINER_ID=$(docker run -d --rm --platform linux/${{ matrix.platform }} $IMAGE_TAG)
-          echo "Started container: $CONTAINER_ID"
-          
-          # Wait for container to be healthy
-          MAX_ATTEMPTS=10
-          ATTEMPT=1
-          while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
-            STATUS=$(docker inspect --format='{{.State.Health.Status}}' $CONTAINER_ID 2>/dev/null || echo "")
-            echo "Health check attempt $ATTEMPT: $STATUS"
-            
-            if [ "$STATUS" = "healthy" ]; then
+          # Verify that the image has a HEALTHCHECK (otherwise the test can never pass)
+          HAS_HEALTH=$(docker image inspect -f '{{if .Config.Healthcheck}}yes{{else}}no{{end}}' "${IMAGE_TAG}")
+          if [ "${HAS_HEALTH}" != "yes" ]; then
+            echo "No HEALTHCHECK defined in the image -> failing test."
+            exit 1
+          fi
+
+          docker run -d --rm --platform "linux/${{ matrix.platform }}" --name "${NAME}" "${IMAGE_TAG}"
+          echo "Started container: ${NAME}"
+
+          MAX_ATTEMPTS=20
+          for ATTEMPT in $(seq 1 ${MAX_ATTEMPTS}); do
+            STATUS=$(docker inspect -f '{{.State.Status}}' "${NAME}" || true)
+            HEALTH=$(docker inspect -f '{{.State.Health.Status}}' "${NAME}" 2>/dev/null || echo "unknown")
+
+            echo "Attempt ${ATTEMPT}/${MAX_ATTEMPTS}: status=${STATUS} health=${HEALTH}"
+
+            if [ "${STATUS}" != "running" ]; then
+              echo "Container exited. Logs:"
+              docker logs "${NAME}" || true
+              exit 1
+            fi
+
+            if [ "${HEALTH}" = "healthy" ]; then
               echo "Container is healthy!"
-              docker stop $CONTAINER_ID
+              docker stop "${NAME}"
               exit 0
             fi
-            
+
             sleep 5
-            ATTEMPT=$((ATTEMPT + 1))
           done
-          
-          echo "Container failed health check"
-          docker stop $CONTAINER_ID
+
+          echo "Timeout waiting for healthy. Logs:"
+          docker logs "${NAME}" || true
+          docker stop "${NAME}" || true
           exit 1
