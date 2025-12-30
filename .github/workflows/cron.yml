@@ -7,6 +7,12 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      release:
+        description: 'Release new version if true'
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   extract-version:
@@ -45,7 +51,31 @@ jobs:
 
   build:
     uses: ./.github/workflows/build.yaml
-    if: needs.extract-version.outputs.versions_differ == 'true'
+    if: needs.extract-version.outputs.versions_differ == 'true' || 
+        github.event_name == 'pull_request'
     needs: extract-version
     with:
       version: ${{ needs.extract-version.outputs.lbm_version }}
+
+  test:
+    uses: ./.github/workflows/test.yaml
+    if: needs.extract-version.outputs.versions_differ == 'true' || 
+        github.event_name == 'pull_request'
+    needs: build
+    with:
+      version: ${{ needs.extract-version.outputs.lbm_version }}
+
+  release:
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' && 
+        (github.event_name == 'workflow_dispatch' && github.event.inputs.release == 'true') && 
+        needs.extract-version.outputs.versions_differ == 'true'
+    needs: test
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Publish
+        uses: ./.github/workflows/publish.yaml
+        with:
+          version: ${{ needs.extract-version.outputs.lbm_version }}
