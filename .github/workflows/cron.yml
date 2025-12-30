@@ -17,6 +17,7 @@ on:
 permissions:
   contents: write
   packages: write
+  actions: read
 
 jobs:
   extract-version:
