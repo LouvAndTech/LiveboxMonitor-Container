@@ -1,0 +1,83 @@
+name: Release Workflow
+
+on:
+  schedule:
+    - cron:  "0 2 * * *" # Run at 2:00 AM every day
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      release:
+        description: 'Release new version if true'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+  packages: write
+  actions: read
+
+jobs:
+  extract-version:
+    runs-on: ubuntu-latest
+    name: Extract Version
+    outputs:
+      versions_differ: ${{ steps.compare_versions.outputs.versions_differ }}
+      lbm_version: ${{ steps.get_lbm_version.outputs.lbm_version }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Get LiveboxMonitor current version
+        id: get_lbm_version
+        run: |
+          LBM_VERSION=$(curl -s https://api.github.com/repos/p-dor/LiveboxMonitor/releases/latest | jq -r '.tag_name')
+          echo "Current LiveboxMonitor version is $LBM_VERSION"
+          echo "lbm_version=$LBM_VERSION" >> $GITHUB_OUTPUT
+      - name: Get latest tag
+        id: get_latest_tag
+        run: |
+          LATEST_TAG=$(git describe --tags $(git rev-list --tags --max-count=1))
+          LATEST_VERSION="${LATEST_TAG#v}"
+          echo "Latest tag is $LATEST_TAG (version $LATEST_VERSION)"
+          echo "latest_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+          echo "latest_version=$LATEST_VERSION" >> $GITHUB_OUTPUT
+      - name: Compare versions
+        id: compare_versions
+        run: |
+          echo "Comparing LiveboxMonitor version ${{ steps.get_lbm_version.outputs.lbm_version }} with latest tag version ${{ steps.get_latest_tag.outputs.latest_version }}"
+          if [ "${{ steps.get_lbm_version.outputs.lbm_version }}" != "${{ steps.get_latest_tag.outputs.latest_version }}" ]; then
+            echo "versions_differ=true" >> $GITHUB_OUTPUT
+          else
+            echo "versions_differ=false" >> $GITHUB_OUTPUT
+          fi
+
+  build:
+    uses: ./.github/workflows/build.yaml
+    if: needs.extract-version.outputs.versions_differ == 'true' || 
+        github.event_name == 'pull_request'
+    needs: extract-version
+    with:
+      version: ${{ needs.extract-version.outputs.lbm_version }}
+
+  test:
+    uses: ./.github/workflows/test.yaml
+    if: needs.extract-version.outputs.versions_differ == 'true' || 
+        github.event_name == 'pull_request'
+    needs: [build, extract-version]
+    with:
+      version: ${{ needs.extract-version.outputs.lbm_version }}
+      build_run_id: ${{ needs.build.outputs.build_run_id }}
+
+  release:
+    uses: ./.github/workflows/publish.yaml
+    if: github.event_name != 'pull_request' && 
+        (github.event_name == 'workflow_dispatch' && github.event.inputs.release == 'true') && 
+        needs.extract-version.outputs.versions_differ == 'true'
+    needs: [build, test, extract-version]
+    with:
+      version: ${{ needs.extract-version.outputs.lbm_version }}
+      build_run_id: ${{ needs.build.outputs.build_run_id }}
+    secrets: inherit
