@@ -19,11 +19,6 @@ To use this container, you can use the following `docker-compose` configuration 
 services:
   liveboxmonitor:
     image: louvandtech/liveboxmonitor:latest
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        APP_VERSION: "1.6"
     container_name: liveboxmonitor
     environment:
       CUSTOM_USER: "user" # CHANGE ME
