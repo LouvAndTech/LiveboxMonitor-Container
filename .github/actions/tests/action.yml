@@ -1,6 +1,6 @@
 name: Test
 
-description: 'Build and test LiveboxMonitor Docker image'
+description: 'Download and run healthchecks for LiveboxMonitor Docker image (composite action)'
 
 inputs:
   version:
@@ -8,55 +8,51 @@ inputs:
     required: true
     type: string
 
-jobs:
-  download-and-test:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        platform:
-          - amd64
-          - arm64
-    steps:
-      - name: Download artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: image-${{ inputs.version }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          run-id: ${{ github.event.workflow_run.id }}
-          path: .
+runs:
+  using: composite
+  steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
 
-      - name: Load image
-        run: |
-          docker load --input ./image/image.tar
+    - name: Download artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: image-${{ inputs.version }}
+        path: .
 
-      - name: Run healthcheck
-        run: |
+    - name: Load image
+      run: |
+        docker load --input ./image/image.tar
+
+    - name: Run healthchecks for amd64 and arm64
+      shell: bash
+      run: |
+        for platform in amd64 arm64; do
           IMAGE_TAG=liveboxmonitor:${{ inputs.version }}
-
-          # Start container
-          CONTAINER_ID=$(docker run -d --rm --platform linux/${{ matrix.platform }} $IMAGE_TAG)
+          echo "Testing platform: $platform"
+          CONTAINER_ID=$(docker run -d --rm --platform linux/$platform $IMAGE_TAG)
           echo "Started container: $CONTAINER_ID"
-          
-          # Wait for container to be healthy
           MAX_ATTEMPTS=10
           ATTEMPT=1
           while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
             STATUS=$(docker inspect --format='{{.State.Health.Status}}' $CONTAINER_ID 2>/dev/null || echo "")
             echo "Health check attempt $ATTEMPT: $STATUS"
-            
             if [ "$STATUS" = "healthy" ]; then
-              echo "Container is healthy!"
+              echo "Container is healthy for $platform"
               docker stop $CONTAINER_ID
-              exit 0
+              break
             fi
-            
             sleep 5
             ATTEMPT=$((ATTEMPT + 1))
           done
-          
-          echo "Container failed health check"
-          docker stop $CONTAINER_ID
-          exit 1
+          if [ $ATTEMPT -gt $MAX_ATTEMPTS ]; then
+            echo "Container failed health check for platform $platform"
+            docker stop $CONTAINER_ID || true
+            exit 1
+          fi
+        done
