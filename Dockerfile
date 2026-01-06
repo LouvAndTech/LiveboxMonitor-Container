@@ -15,8 +15,8 @@ ARG APP_VERSION
 RUN apk add --no-cache \
     python3 \
     wget \
-    tar \ 
-    py3-qt6 
+    tar \
+    py3-qt6
 
 # Download LiveboxMonitor
 RUN wget -qO- https://github.com/p-dor/LiveboxMonitor/archive/refs/tags/${APP_VERSION}.tar.gz | tar -xz --strip-components=1 -C /LiveboxMonitor

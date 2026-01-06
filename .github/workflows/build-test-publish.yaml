@@ -1,0 +1,47 @@
+name: Build-test-publish
+
+on:
+  push:
+    tags:
+      - "v*.*"
+  pull_request:
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  extract-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.extract.outputs.version }}
+    steps:
+      # If pull request, then use 1.6 as version If from a tag, extract version from tag
+      - name: Extract version
+        id: extract
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            VERSION="1.6"
+          else
+            TAG_NAME="${{ github.ref_name }}"
+            VERSION="${TAG_NAME#v}"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+  build:
+    uses: ./.github/workflows/build.yaml
+    needs: extract-version
+    with:
+      version: ${{ needs.extract-version.outputs.version }}
+  
+  test:
+    uses: ./.github/workflows/test.yaml
+    needs: build
+    with:
+      version: ${{ needs.extract-version.outputs.version }}
+  
+  publish:
+    uses: ./.github/workflows/publish.yaml
+    needs: test
+    with:
+      version: ${{ needs.extract-version.outputs.version }}
