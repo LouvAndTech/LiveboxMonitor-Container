@@ -1,0 +1,110 @@
+name: Publish
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: 'Version to publish'
+        required: true
+        type: string
+      build_run_id:
+        description: 'Run ID of the build workflow'
+        required: true
+        type: string
+
+env:
+  REGISTRY_GHCR: ghcr.io
+  REGISTRY_DOCKER: docker.io
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: image-${{ inputs.version }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.build_run_id }}
+          path: .
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY_GHCR }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY_DOCKER }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Load image from artifact
+        run: |
+          docker load --input ./image.tar
+
+      - name: Push to GitHub Container Registry
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.REGISTRY_GHCR }}/${{ github.repository_owner }}/liveboxmonitor:${{ inputs.version }}
+            ${{ env.REGISTRY_GHCR }}/${{ github.repository_owner }}/liveboxmonitor:latest
+
+      - name: Push to Docker Hub
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.REGISTRY_DOCKER }}/${{ secrets.DOCKER_USERNAME }}/liveboxmonitor:${{ inputs.version }}
+            ${{ env.REGISTRY_DOCKER }}/${{ secrets.DOCKER_USERNAME }}/liveboxmonitor:latest
+
+      - name: Create Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          release_name: Release ${{ steps.version.outputs.version }}
+          body: |
+            # LiveboxMonitor Container v${{ steps.version.outputs.version }}
+
+            Built from: [${{ github.sha }}](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
+
+            ## Images Available at :
+
+            ### GitHub Container Registry
+
+            - `/${{ secrets.DOCKER_USERNAME }}/liveboxmonitor:${{ steps.version.outputs.version }}`
+            - `/${{ secrets.DOCKER_USERNAME }}/liveboxmonitor:latest`
+
+            ### Docker Hub
+
+            - `/${{ secrets.DOCKER_USERNAME }}/liveboxmonitor:${{ steps.version.outputs.version }}`
+            - `/${{ secrets.DOCKER_USERNAME }}/liveboxmonitor:latest`
+
+            ## Upstream Project
+            - **LiveboxMonitor**: https://github.com/p-dor/LiveboxMonitor
+          draft: false
+          prerelease: false

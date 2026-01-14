@@ -1,0 +1,52 @@
+name: Build
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: 'Version to build'
+        required: true
+        type: string
+    outputs:
+      build_run_id:
+        description: 'Run ID of the build workflow'
+        value: ${{ jobs.build.outputs.run_id }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      run_id: ${{ steps.build-meta.outputs.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Export build run id
+        id: build-meta
+        run: echo "run_id=${{ github.run_id }}" >> $GITHUB_OUTPUT
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            APP_VERSION=${{ inputs.version }}
+          tags: |
+            liveboxmonitor:${{ inputs.version }}
+          outputs: type=oci,dest=./image.tar
+          push: false
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-${{ inputs.version }}
+          path: ./image.tar
+          retention-days: 1
