@@ -1,0 +1,105 @@
+name: Test
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: "Version to test"
+        required: true
+        type: string
+      build_run_id:
+        description: "Run ID of the build workflow"
+        required: true
+        type: string
+
+jobs:
+  download-and-test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [amd64, arm64]
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: image-${{ inputs.version }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.build_run_id }}
+          path: ./artifact
+
+      - name: Show downloaded files
+        run: ls -lah ./artifact
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Install skopeo
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y skopeo
+
+      - name: Import image for ${{ matrix.platform }} into Docker
+        run: |
+          set -euo pipefail
+          IMAGE_TAG="liveboxmonitor:${{ inputs.version }}"
+
+          # Extract the linux/${{ matrix.platform }} variant from the OCI archive
+          skopeo copy \
+            --override-os linux \
+            --override-arch ${{ matrix.platform }} \
+            oci-archive:./artifact/image.tar \
+            docker-daemon:${IMAGE_TAG}
+
+          docker image inspect "${IMAGE_TAG}" >/dev/null
+          echo "Imported ${IMAGE_TAG} for arch ${{ matrix.platform }}"
+
+      - name: Run healthcheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          IMAGE_TAG="liveboxmonitor:${{ inputs.version }}"
+          NAME="liveboxmonitor-test-${{ matrix.platform }}"
+
+          # Verify that the image has a HEALTHCHECK (otherwise the test can never pass)
+          HAS_HEALTH=$(docker image inspect -f '{{if .Config.Healthcheck}}yes{{else}}no{{end}}' "${IMAGE_TAG}")
+          if [ "${HAS_HEALTH}" != "yes" ]; then
+            echo "No HEALTHCHECK defined in the image -> failing test."
+            exit 1
+          fi
+
+          docker run -d --rm --platform "linux/${{ matrix.platform }}" --name "${NAME}" "${IMAGE_TAG}"
+          echo "Started container: ${NAME}"
+
+          MAX_ATTEMPTS=20
+          for ATTEMPT in $(seq 1 ${MAX_ATTEMPTS}); do
+            STATUS=$(docker inspect -f '{{.State.Status}}' "${NAME}" || true)
+            HEALTH=$(docker inspect -f '{{.State.Health.Status}}' "${NAME}" 2>/dev/null || echo "unknown")
+
+            echo "Attempt ${ATTEMPT}/${MAX_ATTEMPTS}: status=${STATUS} health=${HEALTH}"
+
+            if [ "${STATUS}" != "running" ]; then
+              echo "Container exited. Logs:"
+              docker logs "${NAME}" || true
+              exit 1
+            fi
+
+            if [ "${HEALTH}" = "healthy" ]; then
+              echo "Container is healthy!"
+              docker stop "${NAME}"
+              exit 0
+            fi
+
+            sleep 5
+          done
+
+          echo "Timeout waiting for healthy. Logs:"
+          docker logs "${NAME}" || true
+          docker stop "${NAME}" || true
+          exit 1
