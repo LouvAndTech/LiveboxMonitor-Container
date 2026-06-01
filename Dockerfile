@@ -32,9 +32,11 @@ ENV TITLE=LiveboxMonitor
 # Copy custom files
 COPY etc /etc
 COPY root /
-# Enable http authentication
-ENV CUSTOM_USER=liveboxmonitor
-ENV PASSWORD=default_pass
+
+# Force enable http authentication
+# ENV CUSTOM_USER=liveboxmonitor
+# ENV PASSWORD=default_pass
+
 # Startup parameters
 ENV NO_DECOR=1
 
