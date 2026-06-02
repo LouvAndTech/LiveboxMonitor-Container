@@ -27,6 +27,12 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: set lower case owner name
+        run: |
+          echo "OWNER_LC=${OWNER,,}" >>${GITHUB_ENV}
+        env:
+          OWNER: '${{ github.repository_owner }}'
+
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
@@ -60,11 +66,11 @@ jobs:
           set -euo pipefail
           skopeo copy --all \
             oci-archive:./image.tar \
-            docker://${{ env.REGISTRY_GHCR }}/${{ github.repository_owner }}/liveboxmonitor:${{ inputs.version }}
+            docker://${{ env.REGISTRY_GHCR }}/${{ env.OWNER_LC }}/liveboxmonitor:${{ inputs.version }}
 
           skopeo copy --all \
             oci-archive:./image.tar \
-            docker://${{ env.REGISTRY_GHCR }}/${{ github.repository_owner }}/liveboxmonitor:latest
+            docker://${{ env.REGISTRY_GHCR }}/${{ env.OWNER_LC }}/liveboxmonitor:latest
 
       - name: Push OCI archive to Docker Hub
         run: |
