@@ -93,9 +93,7 @@ jobs:
 
   release:
     uses: ./.github/workflows/publish.yaml
-    if: github.event_name != 'pull_request' && 
-        (github.event_name == 'workflow_dispatch' && github.event.inputs.release == 'true') && 
-        needs.extract-version.outputs.versions_differ == 'true'
+    if: github.event_name != 'pull_request' && ((github.event_name == 'workflow_dispatch' && github.event.inputs.release == 'true') || (github.event_name != 'workflow_dispatch' && needs.extract-version.outputs.versions_differ == 'true'))
     needs: [build, test, extract-version]
     with:
       version: ${{ needs.extract-version.outputs.lbm_version }}
