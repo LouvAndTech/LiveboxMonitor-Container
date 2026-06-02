@@ -88,10 +88,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ steps.version.outputs.tag }}
-          release_name: Release ${{ steps.version.outputs.version }}
+          tag_name: v${{ inputs.version }}
+          release_name: Release v${{ inputs.version }}
           body: |
-            # LiveboxMonitor Container v${{ steps.version.outputs.version }}
+            # LiveboxMonitor Container v${{ inputs.version }}
 
             Built from: [${{ github.sha }}](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
 
@@ -99,13 +99,13 @@ jobs:
 
             ### GitHub Container Registry
 
-            - `/${{ secrets.DOCKER_USERNAME }}/liveboxmonitor:${{ steps.version.outputs.version }}`
-            - `/${{ secrets.DOCKER_USERNAME }}/liveboxmonitor:latest`
+            - `${{ env.REGISTRY_GHCR }}/${{ env.OWNER_LC }}/liveboxmonitor:${{ inputs.version }}`
+            - `${{ env.REGISTRY_GHCR }}/${{ env.OWNER_LC }}/liveboxmonitor:latest`
 
             ### Docker Hub
 
-            - `/${{ secrets.DOCKER_USERNAME }}/liveboxmonitor:${{ steps.version.outputs.version }}`
-            - `/${{ secrets.DOCKER_USERNAME }}/liveboxmonitor:latest`
+            - `${{ secrets.DOCKER_USERNAME }}/liveboxmonitor:${{ inputs.version }}`
+            - `${{ secrets.DOCKER_USERNAME }}/liveboxmonitor:latest`
 
             ## Upstream Project
             - **LiveboxMonitor**: https://github.com/p-dor/LiveboxMonitor
