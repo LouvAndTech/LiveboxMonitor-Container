@@ -91,9 +91,9 @@ jobs:
           tag_name: v${{ inputs.version }}
           release_name: Release v${{ inputs.version }}
           body: |
-            # LiveboxMonitor Container v${{ inputs.version }}
+            ## Upstream Project
 
-            Built from: [${{ github.sha }}](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
+            - **LiveboxMonitor**: https://github.com/p-dor/LiveboxMonitor  
 
             ## Images Available at :
 
@@ -107,7 +107,6 @@ jobs:
             - `${{ secrets.DOCKER_USERNAME }}/liveboxmonitor:${{ inputs.version }}`
             - `${{ secrets.DOCKER_USERNAME }}/liveboxmonitor:latest`
 
-            ## Upstream Project
-            - **LiveboxMonitor**: https://github.com/p-dor/LiveboxMonitor
+            
           draft: false
           prerelease: false
